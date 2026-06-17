@@ -1,0 +1,15 @@
+python3 -c "
+import numpy as np
+from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, fowlkes_mallows_score, v_measure_score
+
+wario_labels = np.loadtxt('/home/ubuntu/ScipionUserData/projects/evaluation_pock/Runs/000999_ProtocolMomaWario/extra/Protein_sets_labels_umap.txt', dtype=int)
+prody_labels = np.loadtxt('/home/ubuntu/ScipionUserData/projects/evaluation_pock/Runs/003369_ProDyRmsd/extra/cluster_labels.txt', dtype=int)
+
+print(f'WARIO frames: {len(wario_labels)}')
+print(f'ProDy frames: {len(prody_labels)}')
+print(f'WARIO clusters: {len(np.unique(wario_labels))}')
+print(f'ProDy clusters: {len(np.unique(prody_labels))}')
+print()
+print(f'Adjusted Rand Index:              {adjusted_rand_score(wario_labels, prody_labels):.3f}')
+print(f'Normalized Mutual Information:    {normalized_mutual_info_score(wario_labels, prody_labels):.3f}')
+"

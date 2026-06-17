@@ -1,0 +1,269 @@
+conda activate validation
+
+python << 'EOF'
+import subprocess
+import tempfile
+import os
+import statistics as st
+from pathlib import Path
+
+PDB_DIR = "/home/ubuntu/ScipionUserData/projects/Hb (1A3N)/Runs/001118_ProtocolMomaWario/extra/centroids"
+CLASH_CUTOFF = -0.4  # Angstroms, estandar MolProbity
+
+import iotbx.pdb
+from mmtbx.validation import ramalyze, rotalyze
+
+
+def compute_clashscore(pdb_path):
+    """Clashscore al estilo MolProbity: pares con gap < -0.4 A, x1000 / atomos."""
+    # 1) Anadir H con reduce
+    r = subprocess.run(["reduce", "-quiet", "-build", str(pdb_path)],
+                       capture_output=True, text=True)
+    pdb_h_content = r.stdout
+
+    with tempfile.NamedTemporaryFile(suffix=".pdb", mode='w', delete=False) as f:
+        f.write(pdb_h_content)
+        pdb_h = f.name
+
+    try:
+        # 2) Contar atomos (excluir aguas)
+        n_atoms = 0
+        for line in pdb_h_content.split('\n'):
+            if line.startswith(('ATOM', 'HETATM')):
+                if line[17:20].strip() not in ('HOH', 'WAT', 'DOD'):
+                    n_atoms += 1
+
+        # 3) Correr probe con flags de clashscore
+        result = subprocess.run(
+            ["probe", "-u", "-q", "-mc", "-het", "-once", "-stdbonds",
+             "-NOVDWOUT", "all", "all", pdb_h],
+            capture_output=True, text=True
+        )
+
+        # 4) Contar pares unicos con gap < cutoff
+        clash_pairs = set()
+        for line in result.stdout.split('\n'):
+            if not line.startswith(':'):
+                continue
+            parts = line.split(':')
+            if len(parts) < 7:
+                continue
+            if parts[2].strip() not in ('so', 'bo'):
+                continue
+            try:
+                gap = float(parts[5])
+            except (ValueError, IndexError):
+                continue
+            if gap < CLASH_CUTOFF:
+                pair = tuple(sorted([parts[3].strip(), parts[4].strip()]))
+                clash_pairs.add(pair)
+
+        n_clashes = len(clash_pairs)
+        clashscore = (n_clashes * 1000.0 / n_atoms) if n_atoms > 0 else None
+        return clashscore, n_clashes, n_atoms
+    finally:
+        os.unlink(pdb_h)
+
+
+pdb_dir = Path(PDB_DIR)
+pdbs = sorted(pdb_dir.glob("*.pdb"))
+total = len(pdbs)
+print(f"\nProcesando {total} estructuras (modo serie)...\n")
+
+results = []
+for i, p in enumerate(pdbs, 1):
+    name = p.stem
+    try:
+        pdb_inp = iotbx.pdb.input(file_name=str(p))
+        h = pdb_inp.construct_hierarchy()
+
+        rama = ramalyze.ramalyze(pdb_hierarchy=h, outliers_only=False)
+        rota = rotalyze.rotalyze(pdb_hierarchy=h, outliers_only=False)
+        clash, n_clash, n_atoms = compute_clashscore(p)
+
+        r = {
+            "structure": name,
+            "clashscore": clash,
+            "n_clashes": n_clash,
+            "n_atoms": n_atoms,
+            "rama_favored": rama.percent_favored,
+            "rama_outliers": rama.percent_outliers,
+            "rota_favored": rota.percent_favored,
+            "rota_outliers": rota.percent_outliers,
+        }
+        results.append(r)
+
+        print(f"[{i}/{total}] {name:25s}  "
+              f"clash={clash:6.2f}  "
+              f"rama_fav={rama.percent_favored:6.2f}%  "
+              f"rama_out={rama.percent_outliers:5.2f}%  "
+              f"rota_fav={rota.percent_favored:6.2f}%  "
+              f"rota_out={rota.percent_outliers:5.2f}%")
+    except Exception as e:
+        print(f"[{i}/{total}] {name:25s}  ERROR: {type(e).__name__}: {e}")
+
+# Resumen estadistico
+if results:
+    print("\n" + "=" * 90)
+    print(f"RESUMEN ({len(results)}/{total} estructuras OK)")
+    print("=" * 90)
+    print(f"{'metrica':<22s} {'n':>4s} {'media':>10s} {'std':>10s} {'min':>10s} {'mediana':>10s} {'max':>10s}")
+    print("-" * 90)
+    for key, label in [("clashscore",    "clashscore"),
+                       ("rama_outliers", "rama_outliers %"),
+                       ("rota_outliers", "rota_outliers %")]:
+        vals = [r[key] for r in results if r.get(key) is not None]
+        if vals:
+            std = st.stdev(vals) if len(vals) > 1 else 0
+            print(f"{label:<22s} {len(vals):>4d} {st.mean(vals):>10.3f} "
+                  f"{std:>10.3f} {min(vals):>10.3f} {st.median(vals):>10.3f} {max(vals):>10.3f}")
+    print("=" * 90)
+
+print(f"\nclashscore:     {st.mean([r['clashscore'] for r in results if r.get('clashscore') is not None]):.3f} (sd: {st.stdev([r['clashscore'] for r in results if r.get('clashscore') is not None]):.3f})".replace('.', ','))
+print(f"rama_outliers:  {st.mean([r['rama_outliers'] for r in results if r.get('rama_outliers') is not None]):.3f} (sd: {st.stdev([r['rama_outliers'] for r in results if r.get('rama_outliers') is not None]):.3f})".replace('.', ','))
+print(f"rota_outliers:  {st.mean([r['rota_outliers'] for r in results if r.get('rota_outliers') is not None]):.3f} (sd: {st.stdev([r['rota_outliers'] for r in results if r.get('rota_outliers') is not None]):.3f})".replace('.', ','))
+EOF
+
+
+
+
+
+
+
+
+
+python << 'EOF'
+import subprocess
+import tempfile
+import os
+import statistics as st
+from pathlib import Path
+
+BASE_DIR = Path("/home/ubuntu/ScipionUserData/projects/2NPQ/Runs/000614_ProtocolMomaWario/extra/centroids")
+CLASH_CUTOFF = -0.4
+
+import iotbx.pdb
+from mmtbx.validation import ramalyze, rotalyze
+
+
+def compute_clashscore(pdb_path):
+    r = subprocess.run(["reduce", "-quiet", "-build", str(pdb_path)],
+                       capture_output=True, text=True)
+    pdb_h_content = r.stdout
+
+    with tempfile.NamedTemporaryFile(suffix=".pdb", mode='w', delete=False) as f:
+        f.write(pdb_h_content)
+        pdb_h = f.name
+
+    try:
+        n_atoms = sum(1 for line in pdb_h_content.split('\n')
+                      if line.startswith(('ATOM', 'HETATM'))
+                      and line[17:20].strip() not in ('HOH', 'WAT', 'DOD'))
+
+        result = subprocess.run(
+            ["probe", "-u", "-q", "-mc", "-het", "-once", "-stdbonds",
+             "-NOVDWOUT", "all", "all", pdb_h],
+            capture_output=True, text=True
+        )
+
+        clash_pairs = set()
+        for line in result.stdout.split('\n'):
+            if not line.startswith(':'):
+                continue
+            parts = line.split(':')
+            if len(parts) < 7:
+                continue
+            if parts[2].strip() not in ('so', 'bo'):
+                continue
+            try:
+                gap = float(parts[5])
+            except (ValueError, IndexError):
+                continue
+            if gap < CLASH_CUTOFF:
+                clash_pairs.add(tuple(sorted([parts[3].strip(), parts[4].strip()])))
+
+        n_clashes = len(clash_pairs)
+        return (n_clashes * 1000.0 / n_atoms) if n_atoms > 0 else None, n_clashes, n_atoms
+    finally:
+        os.unlink(pdb_h)
+
+
+def print_summary(label, results):
+    if not results:
+        return
+    print(f"\n{'=' * 90}")
+    print(f"RESUMEN {label} ({len(results)} estructuras OK)")
+    print(f"{'=' * 90}")
+    print(f"{'metrica':<22s} {'n':>4s} {'media':>10s} {'std':>10s} {'min':>10s} {'mediana':>10s} {'max':>10s}")
+    print("-" * 90)
+    for key, label_m in [("clashscore",    "clashscore"),
+                         ("rama_outliers", "rama_outliers %"),
+                         ("rota_outliers", "rota_outliers %")]:
+        vals = [r[key] for r in results if r.get(key) is not None]
+        if vals:
+            std = st.stdev(vals) if len(vals) > 1 else 0
+            print(f"{label_m:<22s} {len(vals):>4d} {st.mean(vals):>10.3f} "
+                  f"{std:>10.3f} {min(vals):>10.3f} {st.median(vals):>10.3f} {max(vals):>10.3f}")
+    print("=" * 90)
+
+
+# Detectar walks automatica
+walks = sorted([d for d in BASE_DIR.iterdir() if d.is_dir() and d.name.startswith("walk_")])
+print(f"\nDetectadas {len(walks)} walks: {[w.name for w in walks]}")
+
+all_results = []
+
+for walk in walks:
+    pdbs = sorted(walk.glob("*.pdb"))
+    if not pdbs:
+        print(f"\n[{walk.name}] Sin PDBs, saltando.")
+        continue
+
+    print(f"\n{'#' * 90}")
+    print(f"# {walk.name} — {len(pdbs)} estructuras")
+    print(f"{'#' * 90}")
+
+    walk_results = []
+    for i, p in enumerate(pdbs, 1):
+        name = p.stem
+        try:
+            pdb_inp = iotbx.pdb.input(file_name=str(p))
+            h = pdb_inp.construct_hierarchy()
+
+            rama = ramalyze.ramalyze(pdb_hierarchy=h, outliers_only=False)
+            rota = rotalyze.rotalyze(pdb_hierarchy=h, outliers_only=False)
+            clash, n_clash, n_atoms = compute_clashscore(p)
+
+            r = {
+                "walk": walk.name,
+                "structure": name,
+                "clashscore": clash,
+                "n_clashes": n_clash,
+                "n_atoms": n_atoms,
+                "rama_favored": rama.percent_favored,
+                "rama_outliers": rama.percent_outliers,
+                "rota_favored": rota.percent_favored,
+                "rota_outliers": rota.percent_outliers,
+            }
+            walk_results.append(r)
+            all_results.append(r)
+
+            print(f"  [{i}/{len(pdbs)}] {name:25s}  "
+                  f"clash={clash:6.2f}  "
+                  f"rama_fav={rama.percent_favored:6.2f}%  "
+                  f"rama_out={rama.percent_outliers:5.2f}%  "
+                  f"rota_fav={rota.percent_favored:6.2f}%  "
+                  f"rota_out={rota.percent_outliers:5.2f}%")
+        except Exception as e:
+            print(f"  [{i}/{len(pdbs)}] {name:25s}  ERROR: {type(e).__name__}: {e}")
+
+    print_summary(walk.name, walk_results)
+
+# Resumen global de todas las walks
+print_summary("GLOBAL (todas las walks)", all_results)
+
+print(f"\nclashscore:     {st.mean([r['clashscore'] for r in all_results if r.get('clashscore') is not None]):.3f} (sd: {st.stdev([r['clashscore'] for r in all_results if r.get('clashscore') is not None]):.3f})".replace('.', ','))
+print(f"rama_outliers:  {st.mean([r['rama_outliers'] for r in all_results if r.get('rama_outliers') is not None]):.3f} (sd: {st.stdev([r['rama_outliers'] for r in all_results if r.get('rama_outliers') is not None]):.3f})".replace('.', ','))
+print(f"rota_outliers:  {st.mean([r['rota_outliers'] for r in all_results if r.get('rota_outliers') is not None]):.3f} (sd: {st.stdev([r['rota_outliers'] for r in all_results if r.get('rota_outliers') is not None]):.3f})".replace('.', ','))
+
+EOF
