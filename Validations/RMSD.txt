@@ -1,0 +1,228 @@
+
+------------------------------------------- RMSD CA ENTRE CENTROIDES Y OPTIMIZADO ------------------------------------------------
+
+python << 'EOF'
+import os
+import numpy as np
+from pathlib import Path
+
+DIR_OPT     = Path("/home/ubuntu/ScipionUserData/projects/Hb (1A3N)/Runs/000683_ProtocolMomaWario/extra/centroids")
+DIR_NOOPT   = Path("/home/ubuntu/ScipionUserData/projects/Hb (1A3N)/Runs/001821_ProtocolOptimization/extra")
+
+def get_ca_coords(pdb_path):
+    coords = []
+    with open(pdb_path) as f:
+        for line in f:
+            if line.startswith("ATOM") and line[12:16].strip() == "CA":
+                x = float(line[30:38])
+                y = float(line[38:46])
+                z = float(line[46:54])
+                coords.append([x, y, z])
+    return np.array(coords)
+
+def rmsd(a, b):
+    diff = a - b
+    return np.sqrt((diff ** 2).sum(axis=1).mean())
+
+pdbs_opt   = sorted(DIR_OPT.glob("*.pdb"))
+pdbs_noopt = sorted(DIR_NOOPT.glob("*.pdb"))
+
+# Emparejar por numero (mismo indice)
+total = min(len(pdbs_opt), len(pdbs_noopt))
+print(f"\nComparando {total} pares de centroides (CA RMSD)\n")
+print(f"{'estructura':<30s} {'optimizado':<40s} {'no optimizado':<40s} {'CA_RMSD (Å)':>12s}")
+print("-" * 125)
+
+rmsds = []
+for i in range(total):
+    p_opt   = pdbs_opt[i]
+    p_noopt = pdbs_noopt[i]
+    try:
+        ca_opt   = get_ca_coords(p_opt)
+        ca_noopt = get_ca_coords(p_noopt)
+        if len(ca_opt) != len(ca_noopt):
+            print(f"  PAR {i+1:03d}  AVISO: distinto numero de CA ({len(ca_opt)} vs {len(ca_noopt)}), saltando")
+            continue
+        r = rmsd(ca_opt, ca_noopt)
+        rmsds.append(r)
+        print(f"  par_{i+1:03d}  {p_opt.stem:<38s} {p_noopt.stem:<38s} {r:>10.3f}")
+    except Exception as e:
+        print(f"  par_{i+1:03d}  ERROR: {e}")
+
+if rmsds:
+    import statistics as st
+    print("\n" + "=" * 60)
+    print(f"  media  : {st.mean(rmsds):.3f} (sd: {st.stdev(rmsds):.3f}) Å".replace('.', ','))
+    print(f"  min    : {min(rmsds):.3f} Å".replace('.', ','))
+    print(f"  mediana: {st.median(rmsds):.3f} Å".replace('.', ','))
+    print(f"  max    : {max(rmsds):.3f} Å".replace('.', ','))
+    print("=" * 60)
+EOF
+
+
+
+
+
+
+python << 'EOF'
+import numpy as np
+from pathlib import Path
+import statistics as st
+from collections import defaultdict
+
+DIR_NOOPT = Path("/home/ubuntu/ScipionUserData/projects/2NPQ/Runs/000614_ProtocolMomaWario/extra/centroids")
+DIR_OPT   = Path("/home/ubuntu/ScipionUserData/projects/2NPQ/Runs/001318_ProtocolOptimization/extra")
+
+BACKBONE = {'N', 'CA', 'C', 'O'}
+
+def parse_by_chain_position(pdb_path, atom_selector):
+    """
+    Devuelve dict (chain, pos_within_chain, aname) -> coord
+    donde pos_within_chain es el indice ordinal del residuo dentro de esa cadena.
+    Asi es invariante a renumeracion.
+    """
+    # Primero recogemos residuos ordenados por cadena
+    res_order = defaultdict(list)  # chain -> [resnum, ...] en orden de aparicion
+    seen = defaultdict(set)
+    with open(pdb_path) as f:
+        for line in f:
+            if line.startswith("ATOM"):
+                chain  = line[21]
+                resnum = int(line[22:26])
+                if resnum not in seen[chain]:
+                    seen[chain].add(resnum)
+                    res_order[chain].append(resnum)
+
+    # Mapa (chain, resnum) -> posicion ordinal
+    resnum_to_pos = {}
+    for chain, resnums in res_order.items():
+        for pos, resnum in enumerate(resnums):
+            resnum_to_pos[(chain, resnum)] = pos
+
+    atoms = {}
+    with open(pdb_path) as f:
+        for line in f:
+            if line.startswith("ATOM"):
+                aname = line[12:16].strip()
+                if aname.startswith('H') or not atom_selector(aname):
+                    continue
+                chain  = line[21]
+                resnum = int(line[22:26])
+                pos    = resnum_to_pos[(chain, resnum)]
+                key    = (chain, pos, aname)
+                atoms[key] = np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+    return atoms
+
+def rmsd_common(a, b):
+    common = [k for k in a if k in b]
+    if not common:
+        return None, 0
+    arr_a = np.array([a[k] for k in common])
+    arr_b = np.array([b[k] for k in common])
+    diff = arr_a - arr_b
+    return np.sqrt((diff**2).sum(axis=1).mean()), len(common)
+
+def get_chi_angles_by_pos(pdb_path):
+    res_order = defaultdict(list)
+    seen = defaultdict(set)
+    with open(pdb_path) as f:
+        for line in f:
+            if line.startswith("ATOM"):
+                chain  = line[21]
+                resnum = int(line[22:26])
+                if resnum not in seen[chain]:
+                    seen[chain].add(resnum)
+                    res_order[chain].append(resnum)
+    resnum_to_pos = {}
+    for chain, resnums in res_order.items():
+        for pos, resnum in enumerate(resnums):
+            resnum_to_pos[(chain, resnum)] = pos
+
+    atoms_by_res = defaultdict(dict)
+    with open(pdb_path) as f:
+        for line in f:
+            if line.startswith("ATOM"):
+                aname  = line[12:16].strip()
+                chain  = line[21]
+                resnum = int(line[22:26])
+                pos    = resnum_to_pos[(chain, resnum)]
+                atoms_by_res[(chain, pos)][aname] = np.array(
+                    [float(line[30:38]), float(line[38:46]), float(line[46:54])])
+
+    def dihedral(p0, p1, p2, p3):
+        b1=p1-p0; b2=p2-p1; b3=p3-p2
+        n1=np.cross(b1,b2); n2=np.cross(b2,b3)
+        n1/=(np.linalg.norm(n1)+1e-10); n2/=(np.linalg.norm(n2)+1e-10)
+        m1=np.cross(n1,b2/(np.linalg.norm(b2)+1e-10))
+        return np.degrees(np.arctan2(np.dot(m1,n2), np.dot(n1,n2)))
+
+    chi1 = {}
+    for key, ats in atoms_by_res.items():
+        if all(a in ats for a in ['N','CA','CB']):
+            for cg in ['CG','CG1','OG','OG1','SG']:
+                if cg in ats:
+                    chi1[key] = dihedral(ats['N'],ats['CA'],ats['CB'],ats[cg])
+                    break
+    return chi1
+
+
+pairs = []
+for p_noopt in sorted(DIR_NOOPT.glob("centroid_cluster_*.pdb")):
+    cluster_id = p_noopt.stem.replace("centroid_cluster_", "")
+    p_opt = DIR_OPT / f"centroid_cluster_{cluster_id}_optimized.pdb"
+    if p_opt.exists():
+        pairs.append((cluster_id, p_noopt, p_opt))
+    else:
+        print(f"  AVISO: no encontrado optimizado para cluster {cluster_id}")
+
+print(f"\nComparando {len(pairs)} pares (emparejamiento por cadena + posicion ordinal)\n")
+print(f"{'cluster':<10} {'CA_RMSD':>10} {'BB_RMSD':>10} {'SC_RMSD':>10} {'chi1_diff_med':>14} {'chi1_rot%':>10}")
+print("-" * 70)
+
+all_ca=[]; all_bb=[]; all_sc=[]; all_chi1=[]; all_rot=[]
+
+for cluster_id, p_noopt, p_opt in pairs:
+    try:
+        ca_n = parse_by_chain_position(p_noopt, lambda a: a == 'CA')
+        ca_o = parse_by_chain_position(p_opt,   lambda a: a == 'CA')
+        bb_n = parse_by_chain_position(p_noopt, lambda a: a in BACKBONE)
+        bb_o = parse_by_chain_position(p_opt,   lambda a: a in BACKBONE)
+        sc_n = parse_by_chain_position(p_noopt, lambda a: a not in BACKBONE)
+        sc_o = parse_by_chain_position(p_opt,   lambda a: a not in BACKBONE)
+
+        r_ca, n_ca = rmsd_common(ca_n, ca_o)
+        r_bb, n_bb = rmsd_common(bb_n, bb_o)
+        r_sc, n_sc = rmsd_common(sc_n, sc_o)
+
+        chi_n = get_chi_angles_by_pos(p_noopt)
+        chi_o = get_chi_angles_by_pos(p_opt)
+        common_chi = set(chi_n) & set(chi_o)
+        diffs = [abs(chi_n[r]-chi_o[r]) for r in common_chi]
+        diffs = [d if d<=180 else 360-d for d in diffs]
+        rot_pct = sum(1 for d in diffs if d>30)/len(diffs)*100 if diffs else 0
+        chi_med = st.median(diffs) if diffs else 0
+
+        all_ca.append(r_ca); all_bb.append(r_bb); all_sc.append(r_sc)
+        all_chi1.append(chi_med); all_rot.append(rot_pct)
+
+        print(f"  {cluster_id:<8}   {r_ca:>8.3f}   {r_bb:>8.3f}   {r_sc:>8.3f}   "
+              f"{chi_med:>12.2f}   {rot_pct:>7.1f}%"
+              f"  [CA:{n_ca} BB:{n_bb} SC:{n_sc}]")
+
+    except Exception as e:
+        print(f"  cluster_{cluster_id}  ERROR: {type(e).__name__}: {e}")
+
+print("\n" + "=" * 70)
+print("RESUMEN")
+print("=" * 70)
+for label, vals in [("CA RMSD (Å)",          all_ca),
+                    ("Backbone RMSD (Å)",     all_bb),
+                    ("Sidechain RMSD (Å)",    all_sc),
+                    ("Chi1 diff mediana (°)", all_chi1),
+                    ("Cambio rotámero (%)",   all_rot)]:
+    if vals:
+        media = st.mean(vals)
+        sd    = st.stdev(vals) if len(vals)>1 else 0
+        print(f"  {label:<25s}  {media:.3f} (sd: {sd:.3f})  min: {min(vals):.3f}  med: {st.median(vals):.3f}  max: {max(vals):.3f}".replace('.',','))
+print("=" * 70)
+EOF
