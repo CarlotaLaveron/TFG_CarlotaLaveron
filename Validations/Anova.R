@@ -72,7 +72,7 @@ resultado_ramaout  <- run_two_way_anova(df, "RamaOut",  "Ramachandran Outliers (
 resultado_rotaout  <- run_two_way_anova(df, "RotaOut",  "Sidechain Outliers (%)")
 
 
-# 4. (Opcional) Analisis de sensibilidad: ANOVA sobre log(Clash+1)
+# 4. Analisis de sensibilidad: ANOVA sobre log(Clash+1)
 #    util si el diagnostico de Clashscore muestra no-normalidad
 #    fuerte por el outlier de 160.25 en 2XJX/CG2All
 df$LogClash <- log(df$Clash + 1)
