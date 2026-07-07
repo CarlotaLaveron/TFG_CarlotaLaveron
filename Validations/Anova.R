@@ -3,14 +3,15 @@ library(emmeans)
 
 
 # Cargar datos
-df <- read.csv("C:\\Users\\Carlota\\Downloads\\data.csv", stringsAsFactors = TRUE)
+df <- read.csv("C:\\Users\\Carlota\\Desktop\\data_anova_full.csv", stringsAsFactors = TRUE)
+
 
 df <- df[!(df$Structure == "2XJX" & df$Method == "CG2All" & df$Clash > 100), ]
 
 df$Structure <- as.factor(df$Structure)
 df$Method    <- as.factor(df$Method)
 
-cat("Tamanios muestrales por celda:\n")
+cat("Tamño muestrales por celda:\n")
 print(table(df$Structure, df$Method))
 
 
@@ -29,28 +30,21 @@ run_two_way_anova <- function(data, response, response_name) {
   
   # ANOVA tipo III
   anova_tabla <- Anova(modelo, type = "III")
-  cat("\n--- Tabla ANOVA (Tipo III) ---\n")
+  cat("Tabla ANOVA (Tipo III)\n")
   print(anova_tabla)
   
 
   # Diagnostico de supuestos
   residuos <- residuals(modelo)
   
-  cat("\n--- Test de normalidad de residuos (Shapiro-Wilk) ---\n")
+  cat("\nTest de normalidad de residuos (Shapiro-Wilk)\n")
   print(shapiro.test(residuos))
   
-  cat("\n--- Test de homogeneidad de varianzas (Levene, por Method) ---\n")
+  cat("\nTest de homogeneidad de varianzas (Levene, por Method)\n")
   print(leveneTest(formula_str, data = data))
   
-  cat("\n--- Test de homogeneidad de varianzas (Levene, por Structure) ---\n")
+  cat("\nTest de homogeneidad de varianzas (Levene, por Structure)n")
   print(leveneTest(as.formula(paste(response, "~ Structure")), data = data))
-  
-  # QQ-plot y residuos vs ajustados (se guardan como PNG)
-  png(paste0("diagnostico_", response, ".png"), width = 900, height = 450)
-  par(mfrow = c(1, 2))
-  plot(modelo, which = 1)  # Residuos vs ajustados
-  plot(modelo, which = 2)  # QQ-plot
-  dev.off()
   
   # Post-hoc Tukey (si hay efectos significativos)
   cat("\n--- Post-hoc Tukey: Method ---\n")
@@ -66,15 +60,13 @@ run_two_way_anova <- function(data, response, response_name) {
 }
 
 
-# 3. Ejecutar para las 3 variables
+
 resultado_clash    <- run_two_way_anova(df, "Clash",    "Clashscore")
 resultado_ramaout  <- run_two_way_anova(df, "RamaOut",  "Ramachandran Outliers (%)")
 resultado_rotaout  <- run_two_way_anova(df, "RotaOut",  "Sidechain Outliers (%)")
 
 
-# 4. Analisis de sensibilidad: ANOVA sobre log(Clash+1)
-#    util si el diagnostico de Clashscore muestra no-normalidad
-#    fuerte por el outlier de 160.25 en 2XJX/CG2All
+# 4. ANOVA sobre log(Clash+1)
 df$LogClash <- log(df$Clash + 1)
 resultado_logclash <- run_two_way_anova(df, "LogClash", "log(Clashscore + 1)")
 
