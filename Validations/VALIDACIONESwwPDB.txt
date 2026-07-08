@@ -8,15 +8,15 @@ import statistics as st
 from pathlib import Path
 
 PDB_DIR = "/home/ubuntu/ScipionUserData/projects/Hb (1A3N)/Runs/001118_ProtocolMomaWario/extra/centroids"
-CLASH_CUTOFF = -0.4  # Angstroms, estandar MolProbity
+CLASH_CUTOFF = -0.4  # Angstroms, MolProbity standard
 
 import iotbx.pdb
 from mmtbx.validation import ramalyze, rotalyze
 
 
 def compute_clashscore(pdb_path):
-    """Clashscore al estilo MolProbity: pares con gap < -0.4 A, x1000 / atomos."""
-    # 1) Anadir H con reduce
+    """Clashscore al estilo MolProbity: pairs with gap < -0.4 A, x1000 / atoms."""
+    # Add H
     r = subprocess.run(["reduce", "-quiet", "-build", str(pdb_path)],
                        capture_output=True, text=True)
     pdb_h_content = r.stdout
@@ -26,21 +26,21 @@ def compute_clashscore(pdb_path):
         pdb_h = f.name
 
     try:
-        # 2) Contar atomos (excluir aguas)
+        # 2) Count atoms (no H2O)
         n_atoms = 0
         for line in pdb_h_content.split('\n'):
             if line.startswith(('ATOM', 'HETATM')):
                 if line[17:20].strip() not in ('HOH', 'WAT', 'DOD'):
                     n_atoms += 1
 
-        # 3) Correr probe con flags de clashscore
+        # 3) Run probe
         result = subprocess.run(
             ["probe", "-u", "-q", "-mc", "-het", "-once", "-stdbonds",
              "-NOVDWOUT", "all", "all", pdb_h],
             capture_output=True, text=True
         )
 
-        # 4) Contar pares unicos con gap < cutoff
+        # 4) Count unique pairs and compare to cutoff
         clash_pairs = set()
         for line in result.stdout.split('\n'):
             if not line.startswith(':'):
@@ -48,7 +48,7 @@ def compute_clashscore(pdb_path):
             parts = line.split(':')
             if len(parts) < 7:
                 continue
-            if parts[2].strip() not in ('so', 'bo'):
+            if parts[2].strip() not in ('so', 'bo'): #small overlap, bad overlap
                 continue
             try:
                 gap = float(parts[5])
@@ -68,7 +68,7 @@ def compute_clashscore(pdb_path):
 pdb_dir = Path(PDB_DIR)
 pdbs = sorted(pdb_dir.glob("*.pdb"))
 total = len(pdbs)
-print(f"\nProcesando {total} estructuras (modo serie)...\n")
+print(f"\nProcesando {total} estructuras\n")
 
 results = []
 for i, p in enumerate(pdbs, 1):
@@ -102,10 +102,9 @@ for i, p in enumerate(pdbs, 1):
     except Exception as e:
         print(f"[{i}/{total}] {name:25s}  ERROR: {type(e).__name__}: {e}")
 
-# Resumen estadistico
+# Summary
 if results:
     print("\n" + "=" * 90)
-    print(f"RESUMEN ({len(results)}/{total} estructuras OK)")
     print("=" * 90)
     print(f"{'metrica':<22s} {'n':>4s} {'media':>10s} {'std':>10s} {'min':>10s} {'mediana':>10s} {'max':>10s}")
     print("-" * 90)

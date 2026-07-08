@@ -22,7 +22,6 @@ run_two_way_anova <- function(data, response, response_name) {
   cat("VARIABLE:", response_name, "\n")
   cat("============================================================\n")
   
-  # Contrastes tipo "sum" necesarios para SS tipo III
   options(contrasts = c("contr.sum", "contr.poly"))
   
   formula_str <- as.formula(paste(response, "~ Method * Structure"))
@@ -37,23 +36,23 @@ run_two_way_anova <- function(data, response, response_name) {
   # Diagnostico de supuestos
   residuos <- residuals(modelo)
   
-  cat("\nTest de normalidad de residuos (Shapiro-Wilk)\n")
+  cat("\nTest de normalidad (Shapiro-Wilk)\n")
   print(shapiro.test(residuos))
   
-  cat("\nTest de homogeneidad de varianzas (Levene, por Method)\n")
+  cat("\nTest de homogeneidad de varianzas (por Method)\n")
   print(leveneTest(formula_str, data = data))
   
-  cat("\nTest de homogeneidad de varianzas (Levene, por Structure)n")
+  cat("\nTest de homogeneidad de varianzas (por Structure)n")
   print(leveneTest(as.formula(paste(response, "~ Structure")), data = data))
   
   # Post-hoc Tukey (si hay efectos significativos)
-  cat("\n--- Post-hoc Tukey: Method ---\n")
+  cat("\n Post-hoc Tukey: Method\n")
   print(emmeans(modelo, pairwise ~ Method, adjust = "tukey")$contrasts)
   
-  cat("\n--- Post-hoc Tukey: Structure ---\n")
+  cat("\n Post-hoc Tukey: Structure\n")
   print(emmeans(modelo, pairwise ~ Structure, adjust = "tukey")$contrasts)
   
-  cat("\n--- Post-hoc Tukey: interaccion Method:Structure ---\n")
+  cat("\n Post-hoc Tukey: interaccion Method:Structure\n")
   print(emmeans(modelo, pairwise ~ Method | Structure, adjust = "tukey")$contrasts)
   
   return(list(modelo = modelo, anova = anova_tabla))
