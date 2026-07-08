@@ -38,18 +38,13 @@ def main():
         '-d', dcd_path,
         '-o', out_dcd,
         '-opdb', out_top,
-        '--cg', 'CalphaBasedModel',
+        '--cg', 'MainchainModel',
         '--fix',
         '--device', 'cpu',
     ]
 
     print(f'[cg2all] Running: {" ".join(cmd)}', flush=True)
     result = subprocess.run(cmd, capture_output=True, text=True, env=env)
-
-    if result.stdout:
-        print(result.stdout, flush=True)
-    if result.stderr:
-        print(result.stderr, flush=True)
 
     if result.returncode != 0:
         print(f'ERROR: cg2all failed on {dcd_path}', flush=True)

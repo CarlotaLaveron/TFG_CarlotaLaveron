@@ -72,7 +72,7 @@ def main():
             if os.path.isfile(fallback):
                 checkpoint = fallback
             else:
-                print(f'[DiffPack] ERROR: checkpoint no encontrado: {checkpoint}', flush=True)
+                print(f'[DiffPack] ERROR: checkpoint not found: {checkpoint}', flush=True)
                 sys.exit(1)
         env = {**os.environ, 'CUDA_VISIBLE_DEVICES': ''}
 
@@ -81,12 +81,12 @@ def main():
         #print(f'[DiffPack] Frame {i+1}/{len(pdb_files)}: {os.path.basename(pdb)}', flush=True)
 
         cfg_patched = copy.deepcopy(cfg_base)
-        cfg_patched['engine']['gpus']       = None
+        cfg_patched['engine']['gpus'] = None
         if cfg_patched['task'].get('class') == 'ConfidencePrediction':
             cfg_patched['task']['num_sample'] = args.num_samples
 
         cfg_patched['test_set']['sanitize'] = False
-        cfg_patched['model_checkpoint']     = checkpoint
+        cfg_patched['model_checkpoint'] = checkpoint
 
         tmp_cfg = tempfile.NamedTemporaryFile(
             mode='w', suffix='.yaml', delete=False, dir=args.output_dir

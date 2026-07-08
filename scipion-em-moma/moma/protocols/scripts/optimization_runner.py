@@ -19,9 +19,8 @@ Called by ProtocolOptimization via pwchemPlugin.runScript.
 
 For each input PDB:
   1. Read original residue numbering (before PDBFixer renumbers)
-  2. PDBFixer  – fix missing atoms, add hydrogens (pH 7.0)
-  3. OpenMM    – energy minimization with AMBER14 force field (CPU)
-               – Cα position restraints to preserve backbone
+  2. PDBFixer  – fix missing atoms, add hydrogens (pH 7.4s)
+  3. OpenMM    – energy minimization with AMBER14 force field (CPU) + Cα position restraints to preserve backbone
   4. Write     – output PDB with '_optimized' suffix
   5. Restore   – original residue numbering per chain
 """
@@ -75,9 +74,9 @@ def _get_offsets(pdb_path):
     with open(pdb_path) as f:
         for line in f:
             if line.startswith('ATOM'):
-                chain = line[21]
+                chain = line[21] #chain 
                 try:
-                    resnum = int(line[22:26])
+                    resnum = int(line[22:26]) #residue number in the aa chain
                 except ValueError:
                     continue
                 if chain not in offsets:
@@ -87,9 +86,9 @@ def _get_offsets(pdb_path):
 def optimize_one(input_pdb, output_pdb, max_iterations, ca_force_constant):
 
     offsets = _get_offsets(input_pdb)
-    print(f'  [Numbering] Original offsets per chain: {offsets}')
+    #print(f'  [Numbering] Original offsets per chain: {offsets}')
 
-    print(f'  [PDBFixer] Fixing: {input_pdb}')
+    #print(f'  [PDBFixer] Fixing: {input_pdb}')
     fixer = PDBFixer(filename=input_pdb)
 
     original_residue_numbers = {}
@@ -110,11 +109,10 @@ def optimize_one(input_pdb, output_pdb, max_iterations, ca_force_constant):
     fixer.findNonstandardResidues()
     fixer.replaceNonstandardResidues()
     
-    fixer.missingResidues = {}
     fixer.findMissingAtoms()
     fixer.addMissingAtoms()
     fixer.removeHeterogens()
-    fixer.addMissingHydrogens(7.0)
+    fixer.addMissingHydrogens(7.4)
     
     print(f'  [PDBFixer] Done.')
 
@@ -160,9 +158,8 @@ def optimize_one(input_pdb, output_pdb, max_iterations, ca_force_constant):
     simulation = Simulation(modeller.topology, system, integrator, platform)
     simulation.context.setPositions(positions)
 
-    #print(f'  [OpenMM] PHASE 1: Minimizing with strong Cα restraints (max_iterations={max_iterations//2})...')
-    simulation.minimizeEnergy(maxIterations=max_iterations//2)
-    #print(f'  [OpenMM] PHASE 1 done.')
+    #print(f'  [OpenMM]: Minimizing with strong Cα restraints (max_iterations={max_iterations})...')
+    simulation.minimizeEnergy(maxIterations=max_iterations)
 
     state = simulation.context.getState(getPositions=True)
     state = simulation.context.getState(getPositions=True)

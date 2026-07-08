@@ -14,7 +14,7 @@ import moma
 
 from moma.constants import CG2ALL_DIC, MOMA_DIC, PIPPACK_DIC, DIFFPACK_CG2ALL_DIC
 
-# ── Constants ─────────────────────────────────────────────────────────────────
+# Constants
 INPUT_ENSEMBLE = 0
 INPUT_DCD      = 1
 
@@ -33,10 +33,10 @@ class ProtocolFixerCg2allandSCM(EMProtocol):
     _label = 'Fixer cg2all and SCM'
     _devStatus = BETA
 
-    # ── Parameter definition ──────────────────────────────────────────────────
+    # Parameter definition
     def _defineParams(self, form):
 
-        # ── Input section ──────────────────────────────────────────────────
+        # Input section
         form.addSection(label=Message.LABEL_INPUT)
 
         form.addParam('inputMode', params.EnumParam,
@@ -61,7 +61,7 @@ class ProtocolFixerCg2allandSCM(EMProtocol):
                       help='SetOfAtomStructs del walk — el protocolo detectará '
                            'automáticamente los DCDs asociados.')
 
-        # ── Sidechain modelling section ────────────────────────────────────
+        # Sidechain modelling section
         form.addSection(label='Sidechain Modelling')
 
         form.addParam('sidechainMethod', params.EnumParam,
@@ -136,7 +136,7 @@ class ProtocolFixerCg2allandSCM(EMProtocol):
                       condition='sidechainMethod == %d' % SCM_DIFFPACK,
                       help='Semilla aleatoria para reproducibilidad.')
 
-    # ── Step insertion ────────────────────────────────────────────────────────
+    # Step insertion
     def _insertAllSteps(self):
         if self.inputMode.get() == INPUT_ENSEMBLE:
             self._insertFunctionStep(self.reconstructFromEnsembleStep, needsGPU=False)
@@ -152,7 +152,7 @@ class ProtocolFixerCg2allandSCM(EMProtocol):
         self._insertFunctionStep(self.createOutputStep, needsGPU=False)
 
     def fixMissingAtomsStep(self):
-        pdb_dir    = self._getExtraPath('allAtom_pippack')
+        pdb_dir = self._getExtraPath('allAtom_pippack')
         backup_dir = self._getExtraPath('allAtom_anomalous_backup')
 
         args = (
@@ -173,10 +173,10 @@ class ProtocolFixerCg2allandSCM(EMProtocol):
         )
 
 
-    # ── Step 1a: Reconstruct from PDB ensemble ────────────────────────────────
+    # Reconstruct from PDB ensemble
     def reconstructFromEnsembleStep(self):
-        ensemble   = self.inputEnsemble.get()
-        input_dir  = self._getExtraPath('ca_input')
+        ensemble = self.inputEnsemble.get()
+        input_dir = self._getExtraPath('ca_input')
         output_dir = self._getExtraPath('backbone_reconstructed')
         os.makedirs(input_dir,  exist_ok=True)
         os.makedirs(output_dir, exist_ok=True)
@@ -191,16 +191,16 @@ class ProtocolFixerCg2allandSCM(EMProtocol):
 
         self._runCg2allRunner(input_dir, output_dir)
 
-    # ── Step 1b: Reconstruct from DCD trajectory ──────────────────────────────
+    # Reconstruct from DCD trajectory
     def reconstructFromDCDStep(self):
-        ensemble   = self.inputWalk.get()
-        project    = self.getProject().getPath()
+        ensemble = self.inputWalk.get()
+        project = self.getProject().getPath()
         output_dir = self._getExtraPath('backbone_reconstructed')
-        dcd_dir    = self._getExtraPath('dcd_reconstructed')
+        dcd_dir = self._getExtraPath('dcd_reconstructed')
         os.makedirs(output_dir, exist_ok=True)
-        os.makedirs(dcd_dir,    exist_ok=True)
+        os.makedirs(dcd_dir, exist_ok=True)
 
-        self.info(f'[cg2all] project path  : {project}')
+        self.info(f'[cg2all] project path : {project}')
         self.info(f'[cg2all] ensemble size : {ensemble.getSize()}')
 
         walk_dict = defaultdict(list)
@@ -234,7 +234,7 @@ class ProtocolFixerCg2allandSCM(EMProtocol):
 
         self.info(f'[cg2all] Total frames reconstructed: {frame_counter}')
 
-    # ── Step 2: PIPPack sidechain packing ─────────────────────────────────────
+    # Step 2: PIPPack sidechain packing
     def sidechainPackingPIPPackStep(self):
         backbone_dir = self._getExtraPath('backbone_reconstructed')
         allAtom_dir  = self._getExtraPath('allAtom_pippack')

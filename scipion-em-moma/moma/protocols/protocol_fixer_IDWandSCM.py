@@ -19,7 +19,7 @@ from Bio.PDB import PDBParser
 from moma.constants import PIPPACK_DIC, DIFFPACK_IDW_DIC, MOMA_DIC
 from moma.objects import InvDistTree3D
 
-# ── Constants ─────────────────────────────────────────────────────────────────
+#Constants
 SCM_PIPPACK  = 0
 SCM_DIFFPACK = 1
 
@@ -34,7 +34,7 @@ class ProtocolIDWandSCM(EMProtocol):
         Cα-only ensemble → IDW (full-atom) → strip sidechains → SCM → output
     """
 
-    _label    = 'IDW and SCM'
+    _label = 'IDW and SCM'
     _devStatus = BETA
 
 
@@ -253,7 +253,7 @@ class ProtocolIDWandSCM(EMProtocol):
         pdb_files = sorted(f for f in os.listdir(idw_dir) if f.endswith('.pdb'))
 
         for pdb_file in pdb_files:
-            in_path = os.path.join(idw_dir,      pdb_file)
+            in_path = os.path.join(idw_dir, pdb_file)
             out_path = os.path.join(backbone_dir, pdb_file)
 
             atom_counter = 1
@@ -280,11 +280,6 @@ class ProtocolIDWandSCM(EMProtocol):
         pippack_dir = self.pippackDir.get().strip()
         num_ens = self.numEnsembles.get()
         weights = (self.pippackWeights.get() or '').strip()
-
-        #self.info(f'[PIPPack] backbone_dir  : {backbone_dir}')
-        #self.info(f'[PIPPack] allAtom_dir   : {allAtom_dir}')
-        #self.info(f'[PIPPack] pippack_dir   : {pippack_dir}')
-        #self.info(f'[PIPPack] num_ensembles : {num_ens}')
 
         args = (
             f'--input_dir "{os.path.abspath(backbone_dir)}" '
@@ -329,13 +324,6 @@ class ProtocolIDWandSCM(EMProtocol):
         config_path = self.diffpackConfig.get().strip()
         num_samples = self.diffpackNumSamples.get()
         seed = self.diffpackSeed.get()
-
-        #self.info(f'[DiffPack] input_dir : {input_dir}')
-        #self.info(f'[DiffPack] allAtom_dir : {allAtom_dir}')
-        #self.info(f'[DiffPack] diffpack_dir: {diffpack_dir}')
-        #self.info(f'[DiffPack] config : {config_path}')
-        #self.info(f'[DiffPack] num_samples : {num_samples}')
-        #self.info(f'[DiffPack] seed : {seed}')
 
         args = (
             f'--input_dir "{os.path.abspath(input_dir)}" '
@@ -509,26 +497,3 @@ class ProtocolIDWandSCM(EMProtocol):
         fixed.append('END\n')
         with open(pdb_path, 'w') as f:
             f.writelines(fixed)
-
-    def _validate(self):
-        errors = []
-        if self.inputReference.get() is None:
-            errors.append('A reference full-atom structure must be provided.')
-        ens = self.inputEnsemble.get()
-        if ens is None:
-            errors.append('A target Cα ensemble must be provided.')
-        elif len(ens) == 0:
-            errors.append('The target ensemble is empty.')
-        if self.searchRadius.get() <= 0:
-            errors.append('Search radius R must be positive.')
-        return errors
-
-    def _summary(self):
-        out = getattr(self, 'outputStructures', None)
-        if self.isFinished() and out is not None:
-            return [
-                f'Reconstructed {len(out)} full-atom structure(s).',
-                f'IDW R={self.searchRadius.get():.1f} Å, p=2.0.',
-                f'SCM: {"PIPPack" if self.sidechainMethod.get() == SCM_PIPPACK else "DiffPack"}.',
-            ]
-        return ['Protocol not finished yet.']

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import argparse, os, shutil
 from collections import Counter
 from Bio.PDB import PDBParser
@@ -33,14 +32,14 @@ def remove_oxt(path):
     with open(path, 'w') as f:
         f.writelines(lines)
 
-counts    = {p: count_atoms(p, parser) for p in pdb_files}
-mode      = Counter(counts.values()).most_common(1)[0][0]
+counts = {p: count_atoms(p, parser) for p in pdb_files}
+mode = Counter(counts.values()).most_common(1)[0][0]
 anomalous = [p for p, c in counts.items() if c < mode]
 
 if not anomalous:
-    print('[fix_atoms] Dataset consistente, nada que hacer.')
+    #print('[fix_atoms] Dataset consistente, nada que hacer.')
 else:
-    print(f'[fix_atoms] {len(anomalous)} frame(s) anómalos. Moda: {mode} átomos.')
+    #print(f'[fix_atoms] {len(anomalous)} frame(s) anómalos. Moda: {mode} átomos.')
     for pdb_path in anomalous:
         fname = os.path.basename(pdb_path)
         try:
@@ -55,6 +54,6 @@ else:
                 PDBFile.writeFile(fixer.topology, fixer.positions, f, keepIds=True)
             remove_oxt(pdb_path)
             new_count = count_atoms(pdb_path, parser)
-            print(f'[fix_atoms] {fname}: {counts[pdb_path]} -> {new_count} átomos')
+            #print(f'[fix_atoms] {fname}: {counts[pdb_path]} -> {new_count} átomos')
         except Exception as e:
-            print(f'[fix_atoms] {fname}: error -> {e}')
+            #print(f'[fix_atoms] {fname}: error -> {e}')

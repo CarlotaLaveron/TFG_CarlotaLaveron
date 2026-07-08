@@ -137,11 +137,11 @@ class ProtocolMomaWario(EMProtocol):
         elif mode == INPUT_ENSEMBLE:
             self.convertFromEnsemble()
         elif mode == INPUT_MULTIFRAME:
-            self.convertFromMultiframe()
+            self.convertFromMultiframe() #TO DO
 
     def convertFromPaths(self):
-        structure = self.inputAtomStruct.get().getFileName()  # corregido
-        trajectory = self.inputTrajectory.get().getFileName()  # corregido
+        structure = self.inputAtomStruct.get().getFileName()  
+        trajectory = self.inputTrajectory.get().getFileName() 
 
         structure_name_file = os.path.basename(structure)
         trajectory_name_file = os.path.basename(trajectory)
@@ -159,13 +159,12 @@ class ProtocolMomaWario(EMProtocol):
     def convertFromEnsemble(self):
         ensemble = self.inputEnsemble.get()
         ensemble_tmp = self._getTmpPath('ensemble')
-        # Una subcarpeta que contenga todos los PDBs
         pdb_folder = os.path.join(ensemble_tmp, 'conformations')
         os.makedirs(pdb_folder, exist_ok=True)
 
         for i, atom_struct in enumerate(ensemble):
             src = atom_struct.getFileName()
-            dst = os.path.join(pdb_folder, f'frame_{i:04d}.pdb')
+            dst = os.path.join(pdb_folder, f'frame_{i:04d}.pdb') #rename
             if not os.path.exists(dst):
                 os.symlink(os.path.abspath(src), dst)
 
@@ -193,10 +192,10 @@ class ProtocolMomaWario(EMProtocol):
         elif mode == INPUT_MULTIFRAME:
             structure_folder = os.path.abspath(self._getTmpPath())
 
-        #print(">>> DEBUG: structure_folder =", structure_folder)
-        #print(">>> DEBUG: th_file =", th_file)
-        #print(">>> DEBUG: th_file exists?", os.path.exists(th_file))
-        #print(">>> DEBUG: structure_folder contents:", os.listdir(structure_folder))
+        #print(">>> structure_folder =", structure_folder)
+        #print(">>> th_file =", th_file)
+        #print(">>> th_file exists?", os.path.exists(th_file))
+        #print(">>> structure_folder contents:", os.listdir(structure_folder))
 
         cache_path = self._getExtraPath('wario_cache')
         args = (

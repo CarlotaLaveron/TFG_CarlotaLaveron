@@ -25,6 +25,8 @@
 # *
 # **************************************************************************
 
+##NOT PART OF THE TFG
+
 """
 Reconstructs backbone atoms (N, C, O) from a Cα-only ensemble using ideal backbone geometry. This is needed to use Cα-only ensembles-.
 """

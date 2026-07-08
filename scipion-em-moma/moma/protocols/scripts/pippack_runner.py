@@ -42,10 +42,10 @@ def main():
     #print(f'[PIPPack] batch_size     : {args.batch_size}', flush=True)
 
     for path, label in [
-        (input_dir,        'input_dir'),
-        (pippack_dir,      'pippack_dir'),
+        (input_dir, 'input_dir'),
+        (pippack_dir, 'pippack_dir'),
         (inference_script, 'ensembled_inference.py'),
-        (weights_path,     'weights_path'),
+        (weights_path, 'weights_path'),
     ]:
         if not os.path.exists(path):
             print(f'ERROR: {label} not found: {path}', flush=True)

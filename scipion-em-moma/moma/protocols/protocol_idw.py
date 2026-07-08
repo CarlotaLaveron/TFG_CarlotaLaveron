@@ -219,19 +219,20 @@ class ProtocolInverseDistanceWeighting(EMProtocol):
     
     @staticmethod
     def _count_no_neighbour(all_atoms, src_ca, R):
+        """How many atoms have == 0 neighbours"""
         tree = cKDTree(src_ca)
         hits = tree.query_ball_point(all_atoms, r=R, workers=-1)
         return sum(1 for h in hits if len(h) == 0)
 
     def reconstruct_atoms(self, src_ca, dst_ca, all_atoms, idw, 
                           R=15.0, k=8, power=2.0, leafsize=10):
-        src_ca    = np.asarray(src_ca,    dtype=np.float64)
-        dst_ca    = np.asarray(dst_ca,    dtype=np.float64)
+        src_ca = np.asarray(src_ca, dtype=np.float64)
+        dst_ca = np.asarray(dst_ca, dtype=np.float64)
         all_atoms = np.asarray(all_atoms, dtype=np.float64)
 
         if src_ca.shape != dst_ca.shape:
             raise ValueError(
-                "src_ca and dst_ca must have the same shape, "
+                "src_ca and dst_ca must have the same number of ca, "
                 "got %s vs %s" % (src_ca.shape, dst_ca.shape)
             )
 
@@ -307,13 +308,16 @@ class ProtocolInverseDistanceWeighting(EMProtocol):
 
     @staticmethod
     def _fix_pdb_format(pdb_path):
+    """Strips original TER/END lines and regenerates them. a TER is
+    inserted right before each chain's first HETATM"""
+    
         with open(pdb_path, 'r') as f:
             lines = f.readlines()
 
-        fixed      = []
+        fixed = []
         atom_count = 0
-        last_atom  = None
-        in_hetatm  = False
+        last_atom = None
+        in_hetatm = False
 
         for line in lines:
             record = line[:6].strip()
@@ -328,8 +332,8 @@ class ProtocolInverseDistanceWeighting(EMProtocol):
                 if not in_hetatm and last_atom is not None:
                     atom_count += 1
                     res_name = last_atom[17:20]
-                    chain    = last_atom[21]
-                    resseq   = last_atom[22:26]
+                    chain = last_atom[21]
+                    resseq = last_atom[22:26]
                     fixed.append('TER   %5d      %3s %s%4s\n' % (
                         atom_count, res_name, chain, resseq
                     ))

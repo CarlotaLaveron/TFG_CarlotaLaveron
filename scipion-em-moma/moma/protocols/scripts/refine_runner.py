@@ -6,6 +6,8 @@ import openmm as mm
 import openmm.app as app
 import openmm.unit as unit
 
+#not part of TFG
+
 
 def refine_pdb(in_path, out_path, forcefield, max_iterations=500):
     try:

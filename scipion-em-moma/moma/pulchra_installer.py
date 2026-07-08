@@ -4,6 +4,8 @@ import pwem
 
 from .constants import PULCHRA_VERSION, PULCHRA_URL, PULCHRA_HOME
 
+#not part of the TFG
+
 
 class PulchraInstaller(EMPlugin):
 

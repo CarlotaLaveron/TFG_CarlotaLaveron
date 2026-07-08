@@ -40,7 +40,7 @@ class InvDistTree3D:
 
     Usage
     -----
-    idw          = InvDistTree3D(src_ca)                              
+    idw = InvDistTree3D(src_ca)                              
     interpolated = idw(all_atom_coords, displacements, R=15.0, k=8)  
     """
 
@@ -54,7 +54,6 @@ class InvDistTree3D:
         Interpolate displacement vectors at query points.
 
         Parameters
-        ----------
         q : ndarray (M, 3)
             Query positions (atom coordinates).
         R : float
@@ -65,7 +64,6 @@ class InvDistTree3D:
             If fewer than k Ca are found within R, all of them are used.
 
         Returns
-        -------
         ndarray (M, 3) - interpolated displacement vectors.
                          Add to q to get the displaced positions:
                          new_coords = q + idw(q, R, k)
@@ -77,12 +75,13 @@ class InvDistTree3D:
             )
         
         displacements = np.asarray(displacements, dtype=np.float64)
-        q      = np.asarray(q, dtype=np.float64)
+        q = np.asarray(q, dtype=np.float64)
         single = q.ndim == 1
-        if single:
-            q = q[np.newaxis, :]
+        
+        if single: 
+            q = q[np.newaxis, :] #create matrix, no vector (from (4, ) to (1, 4))
 
-        result     = np.zeros_like(q)
+        result = np.zeros_like(q)
         neighbours = self.tree.query_ball_point(q, r=R, workers=-1)
 
         for j in range(len(q)):
@@ -97,25 +96,25 @@ class InvDistTree3D:
             # Keep only the k nearest within R
             if len(idx) > k:
                 order = np.argsort(dists)[:k]
-                idx   = idx[order]
+                idx = idx[order]
                 dists = dists[order]
 
-            # -- exact-hit special case ---------------------------------------
+
             # if d(x, x_i) = 0 for some i -> u(x) = u_i  (no division by zero)
             zero_mask = dists < 1e-10
             if np.any(zero_mask):
                 result[j] = displacements[idx[np.argmax(zero_mask)]]
                 continue
 
-            # -- compact-support weights --------------------------------------
+
             # w_k = ((R - d) / (R * d)) ^ p  with p=2 fixed
             # All neighbours have d < R (guaranteed by query_ball_point)
-            w     = ((R - dists) / (R * dists)) ** 2
+            w = ((R - dists) / (R * dists)) ** 2
             w_sum = w.sum()
             if w_sum == 0.0:
                 continue
 
-            w        /= w_sum
-            result[j] = np.dot(w, displacements[idx])
+            w /= w_sum
+            result[j] = np.dot(w, displacements[idx]) #sumatorio
 
         return result[0] if single else result
