@@ -11,9 +11,9 @@ BACKBONE = {'N', 'CA', 'C', 'O'}
 
 def parse_by_chain_position(pdb_path, atom_selector):
     
-    # Residues ordered by orden de aparicion
+    # Residues (not atoms) ordered by orden de aparicion
     res_order = defaultdict(list)  # chain -> [resnum, ...] en orden de aparicion
-    seen = defaultdict(set)
+    seen = defaultdict(set) #set: no duplicados, faster comprobations with hash table 
     with open(pdb_path) as f:
         for line in f:
             if line.startswith("ATOM"):
@@ -83,7 +83,7 @@ def get_chi_angles_by_pos(pdb_path):
     def dihedral(p0, p1, p2, p3):
         b1=p1-p0; b2=p2-p1; b3=p3-p2
         n1=np.cross(b1,b2); n2=np.cross(b2,b3)
-        n1/=(np.linalg.norm(n1)+1e-10); n2/=(np.linalg.norm(n2)+1e-10)
+        n1/=(np.linalg.norm(n1)+1e-10); n2/=(np.linalg.norm(n2)+1e-10) #normalization
         m1=np.cross(n1,b2/(np.linalg.norm(b2)+1e-10))
         return np.degrees(np.arctan2(np.dot(m1,n2), np.dot(n1,n2)))
 
@@ -115,11 +115,11 @@ all_ca=[]; all_bb=[]; all_sc=[]; all_chi1=[]; all_rot=[]
 for cluster_id, p_noopt, p_opt in pairs:
     try:
         ca_n = parse_by_chain_position(p_noopt, lambda a: a == 'CA')
-        ca_o = parse_by_chain_position(p_opt,   lambda a: a == 'CA')
+        ca_o = parse_by_chain_position(p_opt, lambda a: a == 'CA')
         bb_n = parse_by_chain_position(p_noopt, lambda a: a in BACKBONE)
-        bb_o = parse_by_chain_position(p_opt,   lambda a: a in BACKBONE)
+        bb_o = parse_by_chain_position(p_opt, lambda a: a in BACKBONE)
         sc_n = parse_by_chain_position(p_noopt, lambda a: a not in BACKBONE)
-        sc_o = parse_by_chain_position(p_opt,   lambda a: a not in BACKBONE)
+        sc_o = parse_by_chain_position(p_opt, lambda a: a not in BACKBONE)
 
         r_ca, n_ca = rmsd_common(ca_n, ca_o)
         r_bb, n_bb = rmsd_common(bb_n, bb_o)
